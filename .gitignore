@@ -4,3 +4,6 @@
 
 # macOS host debris
 .DS_Store
+
+# Nested clone inside the harness layout (see sona-coalition/sprout-harness)
+/sprout-private/
