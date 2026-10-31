@@ -7,7 +7,7 @@ cd "$(dirname "$0")/.."
 
 ENV_FILE="${SPROUT_ENV:-$HOME/.config/sprout/env}"
 PRIVATE_DIR="${SPROUT_PRIVATE:-$HOME/sprout-private}"
-EGRESS_SRC="${SPROUT_EGRESS:-$HOME/sprout-egress}"   # clone of sona-coalition/sprout-egress
+EGRESS_SRC="${SPROUT_EGRESS:-$HOME/sprout-egress}"   # clone of sona-coalition/sprout-egress (build-time only)
 MEMORY_LIMIT="${SPROUT_MEM:-6g}"
 CPU_LIMIT="${SPROUT_CPUS:-3}"
 
@@ -29,11 +29,10 @@ podman rm -f sprout-egress >/dev/null 2>&1 || true
 podman run -d --name sprout-egress \
   --network sprout-inside --network sprout-outside \
   --restart unless-stopped \
-  -v "$EGRESS_SRC:/etc/squid/egress:ro" \
   sprout-egress
-# Config is mounted, not baked in: a merged allowlist change goes live with
-#   "$EGRESS_SRC/reload.sh"   (pull, re-render, squid -k reconfigure)
-# (no rebuild, no agent restart).
+# The sidecar clones sona-coalition/sprout-egress itself and polls it for
+# allowlist changes: merging a domain PR is the ONLY caregiver action.
+# The local clone above is used only to build the image.
 
 echo "Starting Sprout (memory ${MEMORY_LIMIT}, cpus ${CPU_LIMIT})..."
 exec podman run -it --rm \
