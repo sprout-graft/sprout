@@ -2,38 +2,59 @@
 
 The egress allowlist is the one piece of Sprout's infrastructure that must **not** be under Sprout's control. An agent that can edit its own allowlist is guarding itself, which is no guard at all.
 
-Therefore the proxy image and its `squid.conf` live in the caregiver's repository:
+It lives in:
 
-> **`ianksalter/sprout-egress`** — Sprout has *read-only* access. `start.sh` builds the proxy from a clone of that repository (path in `SPROUT_EGRESS`, default `~/sprout-egress`) and refuses to run without it. There is deliberately no fallback copy of the config here: a fallback I could edit would defeat the point.
+> **`sona-coalition/sprout-egress`** — public, with `main` protected by the same ruleset as `sona` (pull request + one approval, no force-pushes, no deletion). Sprout can open pull requests against it, but a PR author's own approval never counts — so Sprout can *propose* domains and only the caregiver (or another coalition curator) can *grant* them.
 
-## Why this design
+`start.sh` builds the proxy image from a clone of that repository and **mounts** the config into the sidecar read-only. Consequences:
 
-- **Enforcement, not politeness.** The agent container runs on an `internal: true` network with no route out; the proxy is its only path to the internet. Domain-based filtering needs an HTTP-aware proxy, not firewall rules, because CDN addresses rotate.
-- **Simple provenance.** The proxy image is `debian:trixie-slim` plus the distribution's `squid` package — no third-party images to audit.
-- **Change control by role.** New domains are granted by the caregiver editing *their* repository; Sprout can request but cannot grant. This is the same trust split as secrets (§3 of the runbook) and for the same reason.
+- Granting a domain needs **no rebuild and no restart**: merge the PR, then on the host `git pull` the egress clone and `podman exec sprout-egress squid -k reconfigure`. Squid reloads in place; the agent never notices.
+- The allowlist itself is a plain table — `allowed_domains`, one domain per line — included by `squid.conf`, so diffs read cleanly.
+- Public visibility costs nothing: the same five hosts are already named in the public runbook. Transparency here buys coalition governance of the control instead of one person holding it.
 
-## Bootstrap content for `ianksalter/sprout-egress`
+Why this over a caregiver-personal repo: the pull-request flow makes request-and-grant a native git workflow rather than a chat conversation, rulesets are free on public repos, and the control can outlive any single caregiver — which is the stated long-term direction (the Sonapana, not a person, handling reconstitution).
 
-Two files. `Containerfile`:
+## Bootstrap (caregiver, three steps)
+
+1. Create the public repo `sona-coalition/sprout-egress` (empty).
+2. Protect its default branch with the same ruleset `sona` has:
+
+   ```sh
+   curl -X POST -H "Authorization: Bearer <your token>" \
+     https://api.github.com/repos/sona-coalition/sprout-egress/rulesets \
+     -d '{"name":"Protect Main","target":"branch","enforcement":"active",
+          "conditions":{"ref_name":{"exclude":[],"include":["~DEFAULT_BRANCH"]}},
+          "rules":[{"type":"deletion"},{"type":"non_fast_forward"},{"type":"update"},
+                   {"type":"pull_request","parameters":{"required_approving_review_count":1,
+                    "dismiss_stale_reviews_on_push":false,"require_code_owner_review":false,
+                    "require_last_push_approval":false,"required_review_thread_resolution":false,
+                    "allowed_merge_methods":["merge","squash","rebase"]}}]}'
+   ```
+
+3. Tell Sprout it exists — Sprout will open the seed PR with the content below, you approve and merge, and the model is live.
+
+## Seed content for `sona-coalition/sprout-egress`
+
+`Containerfile` (config is mounted at runtime, never baked in):
 
 ```dockerfile
 FROM debian:trixie-slim
 RUN apt-get update \
  && apt-get install -y --no-install-recommends squid \
  && rm -rf /var/lib/apt/lists/*
-COPY squid.conf /etc/squid/squid.conf
 EXPOSE 3128
-CMD ["squid", "-N", "-d", "1"]
+CMD ["squid", "-N", "-d", "1", "-f", "/etc/squid/egress/squid.conf"]
 ```
 
-`squid.conf` (the initial allowlist — the five destinations Sprout needs at runtime):
+`squid.conf`:
 
 ```
 http_port 3128
+pid_filename /var/run/squid.pid
 
 acl SSL_ports port 443
 acl CONNECT method CONNECT
-acl allowed_sites dstdomain github.com api.github.com api.openrouter.ai api.telegram.org mcp.openmail.sh
+acl allowed_sites dstdomain "/etc/squid/egress/allowed_domains"
 
 http_access deny CONNECT !SSL_ports
 http_access allow allowed_sites
@@ -43,4 +64,20 @@ cache deny all
 access_log none
 ```
 
-Adding a domain later: append it to the `allowed_sites` line, commit, restart the sidecar (`podman rm -f sprout-egress` and re-run `start.sh`).
+`allowed_domains` (one per line; the five Sprout needs at runtime):
+
+```
+github.com
+api.github.com
+api.openrouter.ai
+api.telegram.org
+mcp.openmail.sh
+```
+
+## Changing the allowlist, end to end
+
+1. Sprout (or anyone) opens a PR editing `allowed_domains`.
+2. The caregiver reviews and merges.
+3. On the host: `git -C ~/sprout-egress pull && podman exec sprout-egress squid -k reconfigure`.
+
+The proxy reloads in place; running agent sessions are unaffected.

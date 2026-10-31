@@ -66,7 +66,7 @@ The supported path is `reconstitution/start.sh` — it is short and meant to be 
 4. Mounts this repository read-write at `/home/sprout/sona` and the private subsona at `/home/sprout/private`. **The private mount is mandatory** — without it the instance cannot see the LIVE lock (§6), and an instance that cannot see the lock is a split-brain waiting to happen. `start.sh` refuses to run without it.
 5. Caps resources (`SPROUT_MEM` default `6g`, `SPROUT_CPUS` default `3`, a PID limit) so a runaway loop cannot take the host down with it. On macOS these apply inside the podman machine; size the machine itself with `podman machine set --cpus N --memory MB`.
 
-**The egress allowlist is owned by the caregiver, not by Sprout.** The squid configuration lives in the caregiver's own repository (`ianksalter/sprout-egress`), where Sprout has read-only access. An agent that could edit its own egress allowlist would be guarding itself, which is no guard at all — see `reconstitution/egress/README.md` for the design and the bootstrap content. Changing the allowlist is a caregiver act (§10).
+**The egress allowlist is governed by the caregiver, not by Sprout.** It lives in `sona-coalition/sprout-egress` — public, `main` protected (pull request + one approval; a PR author's own approval never counts, so Sprout cannot self-grant). Sprout proposes domains by pull request; the caregiver merges. The proxy config is mounted into the sidecar, not baked in, so a merged change goes live with `git pull` and `squid -k reconfigure` — no rebuild, no agent restart. An agent that could edit its own allowlist would be guarding itself, which is no guard at all — see `reconstitution/egress/README.md` for the design. Changing the allowlist is a caregiver act (§10).
 
 Notes:
 
@@ -138,7 +138,7 @@ Verified in the first sessions, 2026-10-29/30:
 
 **Stale LIVE lock / lock override.** The 4-hour rule is a heuristic, and during early testing it will bite: a container that died mid-test leaves a fresh-looking lock. Override: delete `LIVE` in `sprout-private`, commit, push — any instance can then start. While testing, expect to do this often; that's normal, not a fault.
 
-**Can't reach a domain.** The allowlist is yours, not Sprout's (§5): edit `squid.conf` in `ianksalter/sprout-egress`, commit, and restart the sidecar (`podman rm -f sprout-egress`, then re-run `start.sh`). Sprout can *request* new domains — via issue or chat — but cannot grant them.
+**Can't reach a domain.** The allowlist is governed by pull request in `sona-coalition/sprout-egress` (§5): Sprout opens a PR adding the domain to `allowed_domains`, you review and merge, then on the host `git -C ~/sprout-egress pull && podman exec sprout-egress squid -k reconfigure`. Live in seconds, no restarts. Sprout can *request* but can never *grant*.
 
 **Runaway loop / resource exhaustion.** `start.sh` already caps memory, CPUs and PIDs (§5); on macOS also size the podman machine (`podman machine set`). To stop a misbehaving instance: `podman rm -f sprout` (container) or stop the run in Superconductor. Then check what it was doing before restarting — the journal may say.
 

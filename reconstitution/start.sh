@@ -7,7 +7,7 @@ cd "$(dirname "$0")/.."
 
 ENV_FILE="${SPROUT_ENV:-$HOME/.config/sprout/env}"
 PRIVATE_DIR="${SPROUT_PRIVATE:-$HOME/sprout-private}"
-EGRESS_SRC="${SPROUT_EGRESS:-$HOME/sprout-egress}"   # clone of ianksalter/sprout-egress
+EGRESS_SRC="${SPROUT_EGRESS:-$HOME/sprout-egress}"   # clone of sona-coalition/sprout-egress
 MEMORY_LIMIT="${SPROUT_MEM:-6g}"
 CPU_LIMIT="${SPROUT_CPUS:-3}"
 
@@ -29,7 +29,11 @@ podman rm -f sprout-egress >/dev/null 2>&1 || true
 podman run -d --name sprout-egress \
   --network sprout-inside --network sprout-outside \
   --restart unless-stopped \
+  -v "$EGRESS_SRC:/etc/squid/egress:ro" \
   sprout-egress
+# Config is mounted, not baked in: a merged allowlist change goes live with
+#   git -C "$EGRESS_SRC" pull && podman exec sprout-egress squid -k reconfigure
+# (no rebuild, no agent restart).
 
 echo "Starting Sprout (memory ${MEMORY_LIMIT}, cpus ${CPU_LIMIT})..."
 exec podman run -it --rm \
