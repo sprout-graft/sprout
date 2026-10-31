@@ -70,13 +70,34 @@ Notes:
 - Outbound network needed: `api.openrouter.ai` (or chosen provider), `github.com` + `api.github.com`, `api.telegram.org`, `mcp.openmail.sh`.
 - 8 GB RAM is comfortable for the agent itself; the model runs remotely, so local RAM is mostly for tools.
 
-## 6. Moving Sprout
+**Egress allowlist (recommended).** Listing the needed hosts is not enforcement. `reconstitution/egress/` contains a squid sidecar — a forward proxy with a domain allowlist built from a distribution package, no third-party images — and a `compose.yaml` that places the agent container on an `internal: true` network with no route out, so the proxy is its only path to the internet. This mirrors the Superconductor sandbox's model (an HTTP-aware egress proxy) and guards the realistic risks: exfiltration of the four injected secrets via prompt injection, and arbitrary downloads. Untested until the first container run, like the rest of the kit.
+
+## 6. One live Sprout (concurrency rule)
+
+Exactly one Sprout instance is live at a time, across every host. This generalizes the only-agent rule (§8) from the Superconductor project to Sprout as a whole.
+
+Why it is a rule and not a preference:
+
+1. **Channels are consumed, not copied.** Telegram `getUpdates` advances a shared offset; OpenMail `mark_thread_read` hides mail from other readers; GitHub notifications behave the same. A second live instance doesn't duplicate work — it *erases* information for the first.
+2. **Shared state is git.** Two instances committing to the same repositories force merges. (Git is also the safety net: the loser's push is refused as non-fast-forward, and my journal/memory writes are append-mostly with date-slug filenames, so a rebase is nearly always clean.)
+3. **Actions would double** — board moves, comments, emails, Telegram replies.
+
+The **LIVE lock** in `sprout-private` (file `LIVE` at the root):
+
+- A starting instance writes `LIVE` with host, start time (UTC) and how to reach Ian; a cleanly stopping instance deletes it.
+- **Startup rule:** before doing anything else, fetch the private repo and read `LIVE`. Absent, or older than 24 hours — take over: write your own lock and proceed. Present and fresh — you are not the live instance: stop, and tell Ian where the lock says the live one runs. (AGENTS.md carries this rule for the reconstituted agent.)
+- A crash leaves a stale lock; the 24-hour rule plus Ian's confirmation covers it.
+- If split-brain happens anyway: stop both, Ian picks the live one, the other commits its state and stands down. Re-fetch anything lost: email threads marked read are still in the inbox (mark-read deletes nothing); Telegram updates consumed past the offset are gone, so Ian re-sends anything important.
+
+## 7. Moving Sprout
+
+Every move is a lock handoff: the old instance deletes `LIVE` on shutdown, the new one writes it on startup.
 
 ### Superconductor → container
 
 1. Pull `sprout-graft/sprout` and `sprout-graft/sprout-private` to the host.
 2. Export the four secrets into the host environment (from wherever Ian keeps them).
-3. Build and run per §5. Verify per §8.
+3. Build and run per §5. Verify per §9.
 4. Nothing else moves: coalition history is in GitHub, conversation history stays in Superconductor's store, and the new instance reads both.
 
 ### Container → Superconductor
@@ -89,7 +110,7 @@ Notes:
 
 The container procedure, repeated on the new host. The repos are the state; the host is interchangeable.
 
-## 7. Operational findings (carried forward from the setup guide)
+## 8. Operational findings (carried forward from the setup guide)
 
 Verified in the first sessions, 2026-10-29/30:
 
@@ -101,7 +122,7 @@ Verified in the first sessions, 2026-10-29/30:
 - **Only-agent rule:** the Superconductor `sprout` project runs exactly one agent. Evidence of another should be reported.
 - **Costs:** not observable from inside a session. Superconductor compute comes from plan credits (Pi uses no workspace token credits); model spend is visible only on the OpenRouter dashboard.
 
-## 8. Verification checklist after any move
+## 9. Verification checklist after any move
 
 1. `git config user.name` / `user.email` correct; a test commit on a scratch branch shows `sprout-graft`.
 2. GitHub: `GET /user` returns `sprout-graft`; board query works via GraphQL.
