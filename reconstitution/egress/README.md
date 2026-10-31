@@ -4,7 +4,7 @@ The egress allowlist is the one piece of Sprout's infrastructure that must **not
 
 It lives in:
 
-> **`sona-coalition/sprout-egress`** — public, with `main` protected by the same ruleset as `sona` (pull request + one approval, no force-pushes, no deletion). Sprout can open pull requests against it, but a PR author's own approval never counts — so Sprout can *propose* domains and only the caregiver (or another coalition curator) can *grant* them.
+> **`sona-coalition/sprout-egress`** — public, created 2026-10-31, `main` protected by a ruleset verified to match `sona`'s (pull request + one approval, no force-pushes, no deletion, no bypass actors). Sprout can open pull requests against it, but a PR author's own approval never counts — so Sprout can *propose* domains and only the caregiver (or another coalition curator) can *grant* them.
 
 `start.sh` builds the proxy image from a clone of that repository and **mounts** the config into the sidecar read-only. Consequences:
 
@@ -14,70 +14,29 @@ It lives in:
 
 Why this over a caregiver-personal repo: the pull-request flow makes request-and-grant a native git workflow rather than a chat conversation, rulesets are free on public repos, and the control can outlive any single caregiver — which is the stated long-term direction (the Sonapana, not a person, handling reconstitution).
 
-## Bootstrap (caregiver, three steps)
+## Bootstrap status
 
-1. Create the public repo `sona-coalition/sprout-egress` (empty).
-2. Protect its default branch with the same ruleset `sona` has:
+Repo created and protection verified 2026-10-31 (ruleset "Main Protection": PR + one approval, no force-push, no deletion, no bypass). Seeded by pull request from Sprout; see that PR for the full content.
 
-   ```sh
-   curl -X POST -H "Authorization: Bearer <your token>" \
-     https://api.github.com/repos/sona-coalition/sprout-egress/rulesets \
-     -d '{"name":"Protect Main","target":"branch","enforcement":"active",
-          "conditions":{"ref_name":{"exclude":[],"include":["~DEFAULT_BRANCH"]}},
-          "rules":[{"type":"deletion"},{"type":"non_fast_forward"},{"type":"update"},
-                   {"type":"pull_request","parameters":{"required_approving_review_count":1,
-                    "dismiss_stale_reviews_on_push":false,"require_code_owner_review":false,
-                    "require_last_push_approval":false,"required_review_thread_resolution":false,
-                    "allowed_merge_methods":["merge","squash","rebase"]}}]}'
-   ```
+## The allowlist: YAML source of truth
 
-3. Tell Sprout it exists — Sprout will open the seed PR with the content below, you approve and merge, and the model is live.
+`allowed_domains.yaml` uses attributes that mirror Superconductor's network-rule model, so intent translates directly between the two environments:
 
-## Seed content for `sona-coalition/sprout-egress`
-
-`Containerfile` (config is mounted at runtime, never baked in):
-
-```dockerfile
-FROM debian:trixie-slim
-RUN apt-get update \
- && apt-get install -y --no-install-recommends squid \
- && rm -rf /var/lib/apt/lists/*
-EXPOSE 3128
-CMD ["squid", "-N", "-d", "1", "-f", "/etc/squid/egress/squid.conf"]
+```yaml
+domains:
+  - domain: api.github.com      # required
+    # path_prefix: /            # optional — declared intent only (see below)
+    # read_only: true           # optional — declared intent only (see below)
 ```
 
-`squid.conf`:
+**Enforcement honesty.** The proxy enforces *domain allow/deny only*. `path_prefix` and `read_only` are recorded to match Superconductor's semantics and to be future-proof, but they are **not enforceable for HTTPS traffic** by this design: HTTPS travels inside CONNECT tunnels, so method and path are invisible to the proxy. Enforcing them would require TLS interception (SSL bump), which this design deliberately avoids — the proxy should not be able to read the traffic it filters. For plain-HTTP sites the two attributes *could* be enforced later with method/URL ACLs.
 
-```
-http_port 3128
-pid_filename /var/run/squid.pid
-
-acl SSL_ports port 443
-acl CONNECT method CONNECT
-acl allowed_sites dstdomain "/etc/squid/egress/allowed_domains"
-
-http_access deny CONNECT !SSL_ports
-http_access allow allowed_sites
-http_access deny all
-
-cache deny all
-access_log none
-```
-
-`allowed_domains` (one per line; the five Sprout needs at runtime):
-
-```
-github.com
-api.github.com
-api.openrouter.ai
-api.telegram.org
-mcp.openmail.sh
-```
+`render.sh` generates the flat `allowed_domains` that squid reads; both files are committed, and `reload.sh` regenerates before reloading, so they cannot drift on the host.
 
 ## Changing the allowlist, end to end
 
-1. Sprout (or anyone) opens a PR editing `allowed_domains`.
+1. Sprout (or anyone) opens a PR editing `allowed_domains.yaml`.
 2. The caregiver reviews and merges.
-3. On the host: `git -C ~/sprout-egress pull && podman exec sprout-egress squid -k reconfigure`.
+3. On the host: `~/sprout-egress/reload.sh` — pulls, re-renders the flat file, and runs `squid -k reconfigure` in the sidecar.
 
 The proxy reloads in place; running agent sessions are unaffected.

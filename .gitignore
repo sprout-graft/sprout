@@ -1,3 +1,6 @@
 # Secrets never belong here. The env file lives outside the repo (see
 # reconstitution/env.example); this line is defence against accidents.
 .env
+
+# macOS host debris
+.DS_Store

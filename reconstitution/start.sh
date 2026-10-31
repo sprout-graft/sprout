@@ -32,7 +32,7 @@ podman run -d --name sprout-egress \
   -v "$EGRESS_SRC:/etc/squid/egress:ro" \
   sprout-egress
 # Config is mounted, not baked in: a merged allowlist change goes live with
-#   git -C "$EGRESS_SRC" pull && podman exec sprout-egress squid -k reconfigure
+#   "$EGRESS_SRC/reload.sh"   (pull, re-render, squid -k reconfigure)
 # (no rebuild, no agent restart).
 
 echo "Starting Sprout (memory ${MEMORY_LIMIT}, cpus ${CPU_LIMIT})..."

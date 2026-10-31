@@ -138,7 +138,7 @@ Verified in the first sessions, 2026-10-29/30:
 
 **Stale LIVE lock / lock override.** The 4-hour rule is a heuristic, and during early testing it will bite: a container that died mid-test leaves a fresh-looking lock. Override: delete `LIVE` in `sprout-private`, commit, push — any instance can then start. While testing, expect to do this often; that's normal, not a fault.
 
-**Can't reach a domain.** The allowlist is governed by pull request in `sona-coalition/sprout-egress` (§5): Sprout opens a PR adding the domain to `allowed_domains`, you review and merge, then on the host `git -C ~/sprout-egress pull && podman exec sprout-egress squid -k reconfigure`. Live in seconds, no restarts. Sprout can *request* but can never *grant*.
+**Can't reach a domain.** The allowlist is governed by pull request in `sona-coalition/sprout-egress` (§5): Sprout opens a PR adding the domain to `allowed_domains.yaml`, you review and merge, then on the host run `~/sprout-egress/reload.sh` (pulls, re-renders, reloads squid in place). Live in seconds, no restarts. Sprout can *request* but can never *grant*. Note: only the domain itself is enforced — `path_prefix` and `read_only` are declared intent, unenforceable for HTTPS without TLS interception (see the egress repo README).
 
 **Runaway loop / resource exhaustion.** `start.sh` already caps memory, CPUs and PIDs (§5); on macOS also size the podman machine (`podman machine set`). To stop a misbehaving instance: `podman rm -f sprout` (container) or stop the run in Superconductor. Then check what it was doing before restarting — the journal may say.
 
