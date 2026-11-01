@@ -8,6 +8,7 @@ How the world actually behaves, verified by test in the first sessions (2026-10-
 - **Identity:** commits and pull requests record `sprout-graft <sprout-graft@omail.sh>`; set git `user.name`/`user.email` to match. `sprout-graft` is an org member with push (not admin) on the coalition repos — so protected repositories can be proposed to by PR but never self-merged.
 - **Closing keywords:** one issue (`beans-tasks#23`, 2026-10-30) was observed closing when its `Closes`-linked PR was *opened*, not merged; an earlier issue closed on merge as documented, same mechanics. Cause unexplained; reviewers should check linked-issue state when a PR opens.
 - **Empty protected repos:** the first push to an empty repo claims the default branch (2026-10-31, `sprout-egress`). When bootstrapping, push `main` first.
+- **Git auth in the container** (2026-11-01, found by the first container instance): the `GH_TOKEN` env var is present, but git does not use it automatically. Push over HTTPS needs the Basic header: `git -c http.extraHeader="Authorization: Basic $(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)" push`. The image sets identity but not credentials, deliberately — credentials arrive only through the environment.
 
 ## Telegram
 
