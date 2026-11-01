@@ -13,11 +13,13 @@ How the world actually behaves, verified by test in the first sessions (2026-10-
 ## Telegram
 
 - Bots cannot message first; a human must press Start in a new chat. `getUpdates` polling with an offset and `setMessageReaction` both work; a 👍 reaction marks a conversation ended.
+- **Replying is not consuming** (2026-11-01): `sendMessage` answers a message but leaves the `getUpdates` offset unmoved, so the next instance re-reads and re-answers the same messages (observed: the container replied to two tests; SC replied to all three again). Pair every reply with `getUpdates?offset=<last+1>` before finishing.
 - A `409 Conflict` on `getUpdates` means two pollers are consuming the same bot — the signature of a split-brain. Find and stop the other instance.
 
 ## OpenMail
 
 - Endpoint `https://mcp.openmail.sh/mcp` (note *openmail*; `omail.sh` only redirects). Bearer with an `om_` key or OAuth. Incident: the first stored key was rejected with `invalid_token`, then accepted later the same day after the OpenMail-side setup was revisited; if it recurs, re-mint the key.
+- **`invalid_token` flaps** (three times by 2026-11-01): the key is rejected and later accepted with NO change on our side, suggesting provider-side validation instability. If the container fails *consistently* while Superconductor flaps, first check the `.env` values for stray quotes or whitespace — podman `--env-file` passes values verbatim.
 
 ## Superconductor
 
