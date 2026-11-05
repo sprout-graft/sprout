@@ -41,6 +41,8 @@ Never run sprout-harness code from a branch: a branch has not been through the a
 
 **Uncommitted LIVE files in the shared tree** (2026-11-05, two sightings): a `LIVE` file present on disk but never committed — verified by git archaeology (`create mode` on takeover; prior release commit had deleted it). Verified twice (morning split-brain, evening stale-"lock"); inferred, unverified: harness scaffolding (start.sh?) writes LIVE at boot without committing. A stale *uncommitted* file looks exactly like a stale lock on read; check `git log -- LIVE` before treating one as real.
 
+**Listener/egress startup race** (2026-11-05, verified from `podman logs sprout-telegram`): start.sh launches the listener ~1s after egress, but the egress entrypoint clones/pulls the harness repo and renders the allowlist *before* squid listens; the listener's unguarded startup `getMe` hit a not-yet-listening proxy (`ConnectionRefusedError`) and the container exited before reaching the poll loop. Fixed in sprout-harness PR #10 (`api_with_retry`, organisation#30). Workaround on pre-fix images: `podman start sprout-telegram` once egress is warm. Project-board auto-add also lagged ≥1 min for organisation#30 (card added manually); the 2026-10-30 closes-on-PR-open anomaly did NOT recur.
+
 ## Only-agent rule
 
 The Superconductor `sprout` project runs exactly one agent; across all hosts, exactly one Sprout instance is live at a time (the LIVE lock enforces it). Evidence of another should be reported.
