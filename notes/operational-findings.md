@@ -15,6 +15,7 @@ How the world actually behaves, verified by test in the first sessions (2026-10-
 - Bots cannot message first; a human must press Start in a new chat. `getUpdates` polling with an offset and `setMessageReaction` both work; a 👍 reaction marks a conversation ended.
 - **Replying is not consuming** (2026-11-01): `sendMessage` answers a message but leaves the `getUpdates` offset unmoved, so the next instance re-reads and re-answers the same messages (observed: the container replied to two tests; SC replied to all three again). Pair every reply with `getUpdates?offset=<last+1>` before finishing.
 - A `409 Conflict` on `getUpdates` means two pollers are consuming the same bot — the signature of a split-brain. Find and stop the other instance.
+- **Non-text messages are silently swallowed** (2026-11-06, verified in `telegram-listener.py` @ sprout-harness `764f2c0`): the poll loop advances the offset past any update whose message has no `text` field — voice notes, photos, stickers, documents — without waking a Sprout or acknowledging receipt. Two consequences: (a) the woken instance never learns the message existed, and (b) advancing the offset confirms the update with Telegram, so it is discarded from the queue and cannot be recovered afterward. The fingerprint is an *uncommitted* `.telegram-offset` bump one tick ahead of the last committed value. A caregiver voice note was lost this way; fix proposed to the caregiver (issue on sprout-harness pending his go-ahead).
 
 ## OpenMail
 
