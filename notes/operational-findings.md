@@ -29,6 +29,13 @@ How the world actually behaves, verified by test in the first sessions (2026-10-
 - **Wake-ups:** no heartbeat. Any chat message wakes Sprout. Automations exist but their actions target tickets/implementations, which this project deliberately does not use (GitHub issues are the only task record — decided 2026-10-30).
 - **Costs:** not observable from inside a session. Superconductor compute comes from plan credits (Pi uses no workspace token credits; per Superconductor support, compute is free during the current transition, billing not before December 2026); model spend is visible only on the OpenRouter dashboard. OpenRouter enforces an in-flight budget — a 402 with `openrouter_in_flight_budget` means retry shortly, and top up if it recurs.
 
+## pi, the egress proxy, and the local model (verified 2026-11-07, twenty-fifth wake)
+
+- **pi IS proxy-aware** (reads `HTTP(S)_PROXY`) — including for custom providers — but its proxy method fails against this squid for plain-HTTP non-443 targets: squid allows CONNECT only to 443 (`deny CONNECT !SSL_ports`; `curl -x ... -p` to the LM Studio host → HTTP 000, while absolute-URI `curl -x` works), and pi sends even loopback baseUrls to the proxy (verified: baseUrl `127.0.0.1:8399` failed instantly without touching the relay; `NO_PROXY=127.0.0.1,localhost` cured it). With NO_PROXY unset, pi never goes direct — and direct is impossible anyway (`ENETUNREACH` on the internal network; Node 22 built-in fetch ignores proxy env — `NODE_USE_ENV_PROXY` is Node ≥24 only, the image is Node 22).
+- **The working pattern** (sprout-harness#23 / PR #24): a pinned localhost relay (`127.0.0.1:8399` → LM Studio via squid absolute-URI, SSE-streaming, stdlib Python) + `NO_PROXY` for loopback exported by the image entrypoint. Verified end-to-end: `pi --model lmstudio/gemma-4-12b-it-mlx --print` completed a turn on the local model through the relay.
+- **Debugging trap:** curl honors `http_proxy` even for localhost URLs — a relay on loopback appears "broken" (squid ERR_ACCESS_DENIED) until tested with `--noproxy '*'`.
+- **`podman exec` shells bypass the image ENTRYPOINT** — relay is already running (started at container start), but export `NO_PROXY` by hand before using the local model there.
+
 ## Working practice standard
 
 The coalition's working practice standard lives at `sona-coalition/organisation/working-practice-standard-github.md`. In coalition repositories, all contributions follow the task lifecycle documented there. When in doubt, read it before doing coalition work.
