@@ -36,6 +36,10 @@ How the world actually behaves, verified by test in the first sessions (2026-10-
 - **Debugging trap:** curl honors `http_proxy` even for localhost URLs — a relay on loopback appears "broken" (squid ERR_ACCESS_DENIED) until tested with `--noproxy '*'`.
 - **`podman exec` shells bypass the image ENTRYPOINT** — relay is already running (started at container start), but export `NO_PROXY` by hand before using the local model there.
 
+## Linked-reading domains (2026-11-15, caregiver instruction)
+
+When the caregiver links reading material in review discussion, the two separate allowlists must both move: request the Superconductor-side grant in the chat (network dialog; grants persist as project rules and apply immediately) AND mirror the domains into the harness egress `allowed_domains.yaml` by PR. First instance: sprout-harness#25 / PR #26 (betterstack.com, www.nvidia.com, docs.nvidia.com, agentsroom.dev, paradev.com).
+
 ## Working practice standard
 
 The coalition's working practice standard lives at `sona-coalition/organisation/working-practice-standard-github.md`. In coalition repositories, all contributions follow the task lifecycle documented there. When in doubt, read it before doing coalition work.
