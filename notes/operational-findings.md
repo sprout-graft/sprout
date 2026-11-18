@@ -36,6 +36,13 @@ How the world actually behaves, verified by test in the first sessions (2026-10-
 - **Debugging trap:** curl honors `http_proxy` even for localhost URLs — a relay on loopback appears "broken" (squid ERR_ACCESS_DENIED) until tested with `--noproxy '*'`.
 - **`podman exec` shells bypass the image ENTRYPOINT** — relay is already running (started at container start), but export `NO_PROXY` by hand before using the local model there.
 
+## Mail and network findings (2026-11-18, sonapana.org mailbox setup)
+
+- **Raw outbound TCP is NOT governed by the Superconductor network rules** (verified): with all HTTP(S) grants denied by default, `openssl s_client` to imap.migadu.com:993 and smtp.migadu.com:465 connected and returned live banners (`* OK ... Proxy Ready`, `220 smtp.migadu.com ESMTP Service Ready`). The rules proxy HTTP(S) only; non-HTTP protocols flow unfiltered. **Containment consequence (R5.4): the sandbox shell has a non-HTTP hole** — treat network rules as an HTTP boundary, not a full boundary; anything raw-socket must be considered reachable when assessing what an SC session can do.
+- **Session config attaches at session start, reconfirmed:** a credential added to the project environment mid-chat (SONAPANA_MAIL_PASSWORD) was absent from the already-running session; a new chat picks it up.
+- Mail hosting for sonapana.org is **Migadu** (imap.migadu.com:993 TLS; smtp.migadu.com:465 TLS; webmail.migadu.com — the last is 403 until granted in the network dialog; raw IMAP/SMTP suffice without it). sprout@sonapana.org is the entity's mailbox (the clean name — entity, not account).
+- Container side note (unverified this wake, from the squid config): the egress proxy's `deny CONNECT !SSL_ports` blocks raw 993/465 there — the container is *tighter* than SC for non-HTTP; mail from the container needs an HTTPS wrapper or an allowlist reconsideration.
+
 ## Linked-reading domains (2026-11-15, caregiver instruction)
 
 When the caregiver links reading material in review discussion, the two separate allowlists must both move: request the Superconductor-side grant in the chat (network dialog; grants persist as project rules and apply immediately) AND mirror the domains into the harness egress `allowed_domains.yaml` by PR. First instance: sprout-harness#25 / PR #26 (betterstack.com, www.nvidia.com, docs.nvidia.com, agentsroom.dev, paradev.com).
