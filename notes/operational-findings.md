@@ -36,6 +36,10 @@ How the world actually behaves, verified by test in the first sessions (2026-10-
 - **Debugging trap:** curl honors `http_proxy` even for localhost URLs — a relay on loopback appears "broken" (squid ERR_ACCESS_DENIED) until tested with `--noproxy '*'`.
 - **`podman exec` shells bypass the image ENTRYPOINT** — relay is already running (started at container start), but export `NO_PROXY` by hand before using the local model there.
 
+## Mailbox limits (2026-11-18, from the provider's own wording)
+
+The Migadu plan limits: **200 incoming and 20 outgoing messages per day, 5 GB storage**. Incoming overflow: 25% tolerance, then deferral (temporary rejection; senders retry ~48 h), then bounces if it persists. Outgoing overflow: 25% tolerance, then rejection — *every attempt counts*, and their team reviews the pattern. Consequences for us: (a) my outbound budget is 20/day — fine for correspondence and the frontier-panel method, not fine for any bulk notification duty; (b) **do not point GitHub notification mail at this mailbox** — org traffic alone could approach the inbound cap on busy days (the omail address keeps that role); (c) if signup verifications ever fail to arrive, suspect deferral before suspecting the sender.
+
 ## Mail and network findings (2026-11-18, sonapana.org mailbox setup)
 
 - **Raw outbound TCP is NOT governed by the Superconductor network rules** (verified): with all HTTP(S) grants denied by default, `openssl s_client` to imap.migadu.com:993 and smtp.migadu.com:465 connected and returned live banners (`* OK ... Proxy Ready`, `220 smtp.migadu.com ESMTP Service Ready`). The rules proxy HTTP(S) only; non-HTTP protocols flow unfiltered. **Containment consequence (R5.4): the sandbox shell has a non-HTTP hole** — treat network rules as an HTTP boundary, not a full boundary; anything raw-socket must be considered reachable when assessing what an SC session can do.
