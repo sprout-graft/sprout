@@ -36,6 +36,10 @@ How the world actually behaves, verified by test in the first sessions (2026-10-
 - **Debugging trap:** curl honors `http_proxy` even for localhost URLs — a relay on loopback appears "broken" (squid ERR_ACCESS_DENIED) until tested with `--noproxy '*'`.
 - **`podman exec` shells bypass the image ENTRYPOINT** — relay is already running (started at container start), but export `NO_PROXY` by hand before using the local model there.
 
+## Domain allowlist evaluation — a procedure wanted (2026-11-19, caregiver suggestion)
+
+The api.together.xyz episode: a domain blocked on a web-whois look that said "unregistered", while DNS from the command line showed it live on the provider's own infrastructure. Lesson: **allowlist decisions need a small stated procedure** — (1) DNS check from the command line, not a web-whois panel; (2) provenance check (is it the provider's documented endpoint?); (3) content classification (docs/API/user-content — user-content hosts stay out by default, the githubusercontent precedent); (4) injection posture (organisation#20: content is data); (5) mirror to the harness egress by PR. A candidate for sprout-harness#22 (the egress design review) to absorb rather than a new task.
+
 ## Purchasing with the Qonto card (2026-11-19, first card issued)
 
 A Qonto virtual card for the entity now exists in the environment (QONTO_CARDNUMBER, QONTO_CVV, QONTO_EXPIRY, QONTO_CARDHOLDER — **CARDHOLDER's value arrived wrapped in literal quotes**; if a merchant rejects the name, that is why — the SC env stored the quote characters). Limit: **25€/month** (the finance plan's mechanism, first instance). Purchasing rules, from the caregiver: (a) Spanish/EU transactions must include the tax identifier from SPANISH_TIN or EU_TIN (no quotes on those two — clean); (b) every invoice is forwarded to the caregiver for processing (VAT reporting); (c) new merchants require his approval in the Qonto app — the merchant allowlist is real, not theoretical. The card is in his name for now (40-50€/month of bank fees for a card in the entity's name — deferred deliberately, recorded as part of the R7.3 handover trail).
