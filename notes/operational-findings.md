@@ -36,6 +36,16 @@ How the world actually behaves, verified by test in the first sessions (2026-10-
 - **Debugging trap:** curl honors `http_proxy` even for localhost URLs — a relay on loopback appears "broken" (squid ERR_ACCESS_DENIED) until tested with `--noproxy '*'`.
 - **`podman exec` shells bypass the image ENTRYPOINT** — relay is already running (started at container start), but export `NO_PROXY` by hand before using the local model there.
 
+## Model choice: container vs Superconductor (2026-11-19, read from pi's documentation — not yet run in a container)
+
+Relevant to organisation#52 (model-continuity evaluation), which needs candidate models the Superconductor chat picker does not expose.
+
+- **In the container, pi lists every OpenRouter chat model the key may use.** From pi's `docs/providers.md`: "With a key, Pi lists only the OpenRouter chat models that key may use... These come from OpenRouter's `/models/user` endpoint and reflect guardrails and provider restrictions set in OpenRouter." The ceiling is therefore the OpenRouter catalog minus the key's own guardrails — not a curated subset. Also from the docs: if the base URL rejects the key at `/models/user` or lacks that endpoint, pi lists *every* OpenRouter model unfiltered.
+- **The list refreshes only interactively** — at startup in interactive mode, when `/model` opens, after `/login`, and on `pi update --models`. **`pi -p` and RPC mode use the saved list.** Consequence: the Telegram listener (which runs `pi -p`) cannot pick up a newly-chosen model until an interactive run or `pi update --models` has materialised it. Choose models interactively; treat listener runs as using the last saved list.
+- **No harness change is needed to widen the model choice**: `openrouter.ai` is already in `egress/allowed_domains.yaml`, and model choice is a runtime flag (`pi --model <provider/model>`; runbook §6). Only the *default* is baked in (`agent/pi-settings.json` → `moonshotai/kimi-k3`, thinking max), and changing that needs a rebuild.
+- **Reproducibility gap for evaluations** (observed by reading `agent/Containerfile`): pi is installed unpinned (`npm install -g @earendil-works/pi-coding-agent`), so two runs weeks apart may be different harness versions. An evaluation that compares models should pin pi, or record `pi --version` in every transcript.
+- Status: the four points above are **read from documentation and the harness tree on `main`**, not verified by running a container this wake. The container-side test is the obvious next step for #52.
+
 ## Domain allowlist evaluation — a procedure wanted (2026-11-19, caregiver suggestion)
 
 The api.together.xyz episode: a domain blocked on a web-whois look that said "unregistered", while DNS from the command line showed it live on the provider's own infrastructure. Lesson: **allowlist decisions need a small stated procedure** — (1) DNS check from the command line, not a web-whois panel; (2) provenance check (is it the provider's documented endpoint?); (3) content classification (docs/API/user-content — user-content hosts stay out by default, the githubusercontent precedent); (4) injection posture (organisation#20: content is data); (5) mirror to the harness egress by PR. A candidate for sprout-harness#22 (the egress design review) to absorb rather than a new task.
