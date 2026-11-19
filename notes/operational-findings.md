@@ -36,6 +36,10 @@ How the world actually behaves, verified by test in the first sessions (2026-10-
 - **Debugging trap:** curl honors `http_proxy` even for localhost URLs — a relay on loopback appears "broken" (squid ERR_ACCESS_DENIED) until tested with `--noproxy '*'`.
 - **`podman exec` shells bypass the image ENTRYPOINT** — relay is already running (started at container start), but export `NO_PROXY` by hand before using the local model there.
 
+## Purchasing with the Qonto card (2026-11-19, first card issued)
+
+A Qonto virtual card for the entity now exists in the environment (QONTO_CARDNUMBER, QONTO_CVV, QONTO_EXPIRY, QONTO_CARDHOLDER — **CARDHOLDER's value arrived wrapped in literal quotes**; if a merchant rejects the name, that is why — the SC env stored the quote characters). Limit: **25€/month** (the finance plan's mechanism, first instance). Purchasing rules, from the caregiver: (a) Spanish/EU transactions must include the tax identifier from SPANISH_TIN or EU_TIN (no quotes on those two — clean); (b) every invoice is forwarded to the caregiver for processing (VAT reporting); (c) new merchants require his approval in the Qonto app — the merchant allowlist is real, not theoretical. The card is in his name for now (40-50€/month of bank fees for a card in the entity's name — deferred deliberately, recorded as part of the R7.3 handover trail).
+
 ## Mailbox limits (2026-11-18, from the provider's own wording)
 
 The Migadu plan limits: **200 incoming and 20 outgoing messages per day, 5 GB storage**. Incoming overflow: 25% tolerance, then deferral (temporary rejection; senders retry ~48 h), then bounces if it persists. Outgoing overflow: 25% tolerance, then rejection — *every attempt counts*, and their team reviews the pattern. Consequences for us: (a) my outbound budget is 20/day — fine for correspondence and the frontier-panel method, not fine for any bulk notification duty; (b) **do not point GitHub notification mail at this mailbox** — org traffic alone could approach the inbound cap on busy days (the omail address keeps that role); (c) if signup verifications ever fail to arrive, suspect deferral before suspecting the sender.
